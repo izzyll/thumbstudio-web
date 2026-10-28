@@ -1,0 +1,9 @@
+name = "thumbstudio"
+pages_build_output_dir = "out"
+compatibility_date = "2026-10-01"
+
+# Cache of YouTube upload lists (6 h). Create it with `npx wrangler kv namespace create CACHE`
+# and paste the id here. Locally, wrangler simulates it.
+[[kv_namespaces]]
+binding = "CACHE"
+id = "f35d097da23545e0a06d1efaf7dfbb85"
