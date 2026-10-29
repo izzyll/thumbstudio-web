@@ -18,6 +18,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     );
     return Response.json(data);
   } catch (e) {
+    if (!env.YOUTUBE_API_KEY) {
+      console.error("channel/top: YOUTUBE_API_KEY is not set");
+      return Response.json({ code: "config", error: "El sitio no tiene configurada su key de YouTube." }, { status: 503 });
+    }
     if (e instanceof QuotaError) {
       return Response.json(
         { code: "quota", error: "No podemos procesar tu solicitud hoy: se alcanzó el límite diario de YouTube. Vuelve mañana." },
@@ -28,6 +32,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       return Response.json({ code: "not_found", error: "No encontramos ese canal." }, { status: 404 });
     }
     console.error("channel/top", e);
-    return Response.json({ code: "error", error: "No pudimos leer el canal. Prueba de nuevo." }, { status: 502 });
+    // 500, not 502: Cloudflare can swap a 502 body for its own "error code: 502" page, hiding `detail`.
+    // `detail` is YouTube's message (e.g. a restricted or invalid key); it never contains the key itself.
+    return Response.json(
+      { code: "error", error: "No pudimos leer el canal. Prueba de nuevo.", detail: e instanceof Error ? e.message : String(e) },
+      { status: 500 },
+    );
   }
 };

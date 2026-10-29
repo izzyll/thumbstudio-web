@@ -19,7 +19,8 @@ export function VideoStep() {
   const state = (id: LlmId): { ok: boolean; text: string; action?: "key" | "local" } => {
     if (id === "ollama" || id === "compat") {
       const st = local[id === "ollama" ? "ollama" : "compat"];
-      return st === "ok" ? { ok: true, text: "Conectado" } : { ok: false, text: st === "unknown" ? "Comprobando…" : "Sin conexión", action: "local" };
+      if (st === "ok") return { ok: true, text: "Conectado" };
+      return { ok: false, text: { unknown: "Comprobando…", cors: "Bloquea este sitio", off: "No está abierto" }[st], action: "local" };
     }
     return LLMS[id].ready(settings) ? { ok: true, text: "Key guardada" } : { ok: false, text: "Falta tu API key", action: "key" };
   };

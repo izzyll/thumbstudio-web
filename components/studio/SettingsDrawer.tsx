@@ -3,7 +3,7 @@
 import { Copy, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { LLMS, type LlmId } from "@/lib/analysis";
-import { corsHelp, LOCAL_LABELS, type LocalService, siteOrigin } from "@/lib/local";
+import { corsHelp, LOCAL_LABELS, type LocalService, siteOrigin, useLocalNetworkPermission } from "@/lib/local";
 import { PROVIDERS } from "@/lib/providers";
 import { clearKeys, type Settings } from "@/lib/settings";
 import { HardwareCard } from "./HardwareCard";
@@ -45,6 +45,7 @@ export function SettingsDrawer({ tab: initialTab, onClose }: { tab: SettingsTab;
   const [copied, setCopied] = useState<string | null>(null);
   const set = (k: keyof Settings, v: string | number) => setDraft((d) => ({ ...d, [k]: v }));
   const origin = siteOrigin();
+  const network = useLocalNetworkPermission();
 
   const test = async (sv: LocalService) => {
     saveSettings(draft);
@@ -69,18 +70,26 @@ export function SettingsDrawer({ tab: initialTab, onClose }: { tab: SettingsTab;
           {tab === "local" && (
             <>
               <p className="text-[13px] leading-normal text-muted">Tu navegador se conecta directo a estos servicios en tu PC. Tienen que estar abiertos y permitir este sitio.</p>
+              {network === "denied" && (
+                <div className="flex flex-col gap-1.5 rounded-lg border border-warning/35 bg-warning/[0.07] p-3.5">
+                  <p className="text-[13px] font-semibold">Tu navegador bloqueó el acceso a tu PC para este sitio</p>
+                  <p className="text-xs leading-normal text-muted">
+                    Haz clic en el ícono a la izquierda de la dirección → Configuración del sitio → “Acceso a la red local” → Permitir. Luego recarga la página.
+                  </p>
+                </div>
+              )}
               {SERVICES.map(([sv, role, urlKey, modelKey]) => {
-                const st = local[sv], help = corsHelp(sv, origin);
+                const st = local[sv], help = corsHelp(sv, origin), failed = st === "off" || st === "cors";
                 return (
-                  <div key={sv} className={`flex flex-col gap-3 rounded-xl border bg-bg p-4 ${st === "off" ? "border-warning/35" : "border-border"}`}>
+                  <div key={sv} className={`flex flex-col gap-3 rounded-xl border bg-bg p-4 ${failed ? "border-warning/35" : "border-border"}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <span className="text-[15px] font-semibold">{LOCAL_LABELS[sv]}</span>
                         <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">{role}</span>
                       </div>
-                      <span className={`flex items-center gap-1.5 text-xs ${st === "ok" ? "text-success" : st === "off" ? "text-warning" : "text-muted"}`}>
-                        <StatusDot state={st === "ok" ? "ok" : st === "off" ? "warn" : "off"} />
-                        {st === "ok" ? "Conectado" : st === "off" ? "No responde" : "Sin probar"}
+                      <span className={`flex items-center gap-1.5 text-xs ${st === "ok" ? "text-success" : failed ? "text-warning" : "text-muted"}`}>
+                        <StatusDot state={st === "ok" ? "ok" : failed ? "warn" : "off"} />
+                        {{ ok: "Conectado", cors: "Abierto, pero bloquea este sitio", off: "No está abierto", unknown: "Sin probar" }[st]}
                       </span>
                     </div>
                     <div className="flex gap-2">
@@ -88,9 +97,15 @@ export function SettingsDrawer({ tab: initialTab, onClose }: { tab: SettingsTab;
                       {modelKey && <div className="w-[150px] shrink-0"><Field value={String(draft[modelKey])} onChange={(v) => set(modelKey, v)} placeholder="modelo" /></div>}
                       <button onClick={() => test(sv)} className="h-9 shrink-0 rounded-[7px] bg-surface-2 px-3 text-[13px] font-medium">Probar</button>
                     </div>
-                    {st === "off" && (
+                    {failed && (
                       <div className="flex flex-col gap-2.5 rounded-lg bg-warning/[0.07] p-3.5">
-                        <p className="text-[13px] font-semibold">Ábrelo permitiendo este sitio:</p>
+                        {st === "off" && (
+                          <>
+                            <p className="text-[13px] font-semibold">1. Ábrelo</p>
+                            <p className="text-xs leading-normal text-muted">{help.open}</p>
+                          </>
+                        )}
+                        <p className="text-[13px] font-semibold">{st === "off" ? "2. Permite este sitio:" : "Permite este sitio:"}</p>
                         <button
                           onClick={() => { void navigator.clipboard?.writeText(help.command); setCopied(sv); }}
                           className="flex items-center justify-between gap-3 rounded-md bg-black px-3 py-2.5 text-left font-mono text-xs text-highlight"
@@ -98,7 +113,8 @@ export function SettingsDrawer({ tab: initialTab, onClose }: { tab: SettingsTab;
                           <span className="break-all">{help.command}</span>
                           <span className="flex shrink-0 items-center gap-1 text-muted">{copied === sv ? "Copiado" : <Copy className="size-3.5" />}</span>
                         </button>
-                        <p className="text-xs leading-normal text-muted">{help.note}</p>
+                        <p className="text-xs leading-normal text-muted">{help.allow}</p>
+                        <p className="text-xs leading-normal text-subtle">Luego vuelve aquí y pulsa Probar.</p>
                       </div>
                     )}
                   </div>
